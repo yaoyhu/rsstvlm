@@ -16,6 +16,7 @@ class BaselineRAG:
         pass
 
     def ret_retrieval(self):
+        """return the rag retrieval from thousands of papers."""
         return 2
 
 

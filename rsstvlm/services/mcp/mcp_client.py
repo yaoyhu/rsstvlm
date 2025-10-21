@@ -12,10 +12,7 @@ class MCPClient:
         self.exit_stack = AsyncExitStack()
 
     async def connect_to_server(self):
-        """Connect to an MCP server
-        Args:
-            server_script_path: Path to the server script (.py)
-        """
+        """Connect to an MCP server, return the tools"""
         server_module = "rsstvlm.services.mcp.mcp_server"
         server_params = StdioServerParameters(
             command="python", args=["-m", server_module], env=os.environ.copy()
@@ -35,6 +32,7 @@ class MCPClient:
         print(
             "\nConnected to server with tools:", [tool.name for tool in tools]
         )
+        return tools
 
     async def call_tool(self, tool_name: str, tool_args: dict) -> dict:
         """Call a tool and get the result."""
