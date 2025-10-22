@@ -3,8 +3,11 @@ name = "rsstvlm"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
+    "cartopy>=0.25.0",
+    "contextily>=1.6.2",
+    "geopandas>=1.1.1",
     "h5py>=3.14.0",
     "httpx>=0.28.1",
     "jupyter>=1.1.1",
@@ -12,9 +15,26 @@ dependencies = [
     "llama-index>=0.12.52",
     "mcp[cli]>=1.18.0",
     "pandas>=2.3.2",
+    "pyproj>=3.7.2",
+    "pytest>=8.4.2",
     "requests>=2.32.5",
+    "rioxarray>=0.19.0",
+    "salem>=0.3.11",
     "tqdm>=4.67.1",
+    "xarray>=2025.10.1",
+    "xesmf>=0.8.10",
     "xlrd>=2.0.2",
+    "torch==2.7.1",
+    "torchvision==0.22.1",
+    "qwen-vl-utils==0.0.14",
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu118" },
+]
+torchvision = [
+    { index = "pytorch-cu118" },
 ]
 
 [[tool.uv.index]]
@@ -25,7 +45,7 @@ explicit = true
 [tool.ruff]
 line-length = 79
 exclude = ["tests/fixtures"]
-target-version = "py313"
+target-version = "py312"
 src = ["src"]
 
 [tool.ruff.lint]
