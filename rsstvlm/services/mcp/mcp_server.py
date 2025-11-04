@@ -9,8 +9,8 @@ class MCPServer:
         self.tools = MCPTools()
 
         # TODO: add more tools
-        self.mcp.add_tool(self.tools.rag.ret_retrieval)
-        self.mcp.add_tool(self.tools.h5_plot.ret_images)
+        self.mcp.add_tool(self.tools.graphrag.build_index)
+        self.mcp.add_tool(self.tools.graphrag.query)
 
     def run(self):
         self.mcp.run(transport="stdio")

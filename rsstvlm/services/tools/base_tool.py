@@ -7,10 +7,6 @@ class BaseTool:
 
 class MCPTools:
     def __init__(self):
-        from rsstvlm.services.rag.baseline_rag import BaselineRAG
-        from rsstvlm.services.tools.plot import H5Plot
+        from rsstvlm.services.graphrag.pipeline import GraphRAGPipeline
 
-        # TODO: add web search
-        self.h5_plot = H5Plot()
-        self.rag = BaselineRAG()
-        # self.add = AddTool()
+        self.graphrag = GraphRAGPipeline()

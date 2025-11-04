@@ -77,87 +77,114 @@ text: {text}
 output:"""
 
 
-def parse_fn(response_str: str) -> Any:
-    json_pattern = r"\{.*\}"
-    match = re.search(json_pattern, response_str, re.DOTALL)
-    entities = []
-    relationships = []
-    if not match:
-        return entities, relationships
-    json_str = match.group(0)
-    try:
-        data = json.loads(json_str)
-        entities = [
-            (
-                entity["entity_name"],
-                entity["entity_type"],
-                entity["entity_description"],
+class GraphRAGPipeline:
+    """
+    GraphRAG pipeline for building and querying a knowledge graph.
+    """
+
+    NAME = "GraphRAG"
+    DESCRIPTION = (
+        "A tool for building and querying a knowledge graph from documents."
+    )
+
+    def __init__(self):
+        self.index = None
+        self.query_engine = None
+
+    def build_index(self, file_path: str, exist: bool):
+        # TODO: multiple pdfs
+        """Builds the knowledge graph from a single file."""
+        documents = SimpleDirectoryReader(input_files=[file_path]).load_data()
+        nodes = SentenceSplitter(
+            chunk_size=1024,
+            chunk_overlap=20,
+        ).get_nodes_from_documents(documents)
+
+        kg_extrator = GraphRAGExtractor(
+            llm=llm,
+            extract_prompt=KG_TRIPLET_EXTRACT_TMPL,
+            max_paths_per_chunk=2,
+            parse_fn=self._parse_fn,
+        )
+
+        graph_store = GraphRAGStore(
+            username=NEO4j_USR,
+            password=NEO4j_PASSWD,
+            url="bolt://localhost:7687",
+        )
+
+        if exist:
+            self.index = PropertyGraphIndex.from_existing(
+                property_graph_store=graph_store,
+                llm=llm,
+                embed_model=embedding,
             )
-            for entity in data.get("entities", [])
-        ]
-        relationships = [
-            (
-                relation["source_entity"],
-                relation["target_entity"],
-                relation["relation"],
-                relation["relationship_description"],
+        else:
+            self.index = PropertyGraphIndex(
+                nodes=nodes,
+                kg_extractors=[kg_extrator],
+                property_graph_store=graph_store,
+                show_progress=True,
+                llm=llm,
+                embed_model=embedding,
             )
-            for relation in data.get("relationships", [])
-        ]
-        return entities, relationships
-    except json.JSONDecodeError as e:
-        print("Error parsing JSON:", e)
-        return entities, relationships
+
+        self.index.property_graph_store.build_communities()
+
+        self.query_engine = GraphRAGQueryEngine(
+            graph_store=self.index.property_graph_store,
+            llm=llm,
+            index=self.index,
+            similarity_top_k=10,
+        )
+        return "Index built successfully."
+
+    def query(self, query_str: str) -> str:
+        """Queries the knowledge graph."""
+        if not self.query_engine:
+            return "Index not built. Please build the index first."
+        response = self.query_engine.query(query_str)
+        return response.response
+
+    def _parse_fn(response_str: str) -> Any:
+        json_pattern = r"\{.*\}"
+        match = re.search(json_pattern, response_str, re.DOTALL)
+        entities = []
+        relationships = []
+        if not match:
+            return entities, relationships
+        json_str = match.group(0)
+        try:
+            data = json.loads(json_str)
+            entities = [
+                (
+                    entity["entity_name"],
+                    entity["entity_type"],
+                    entity["entity_description"],
+                )
+                for entity in data.get("entities", [])
+            ]
+            relationships = [
+                (
+                    relation["source_entity"],
+                    relation["target_entity"],
+                    relation["relation"],
+                    relation["relationship_description"],
+                )
+                for relation in data.get("relationships", [])
+            ]
+            return entities, relationships
+        except json.JSONDecodeError as e:
+            print("Error parsing JSON:", e)
+            return entities, relationships
 
 
 def main():
-    # TODO: how to handle pdfs?
-    documents = SimpleDirectoryReader(
-        input_files=[
-            "./tests/Aligner: Efficient Alignment by Learning to Correct.txt"
-        ]
-    ).load_data()
-    nodes = SentenceSplitter(
-        chunk_size=1024,
-        chunk_overlap=20,
-    ).get_nodes_from_documents(documents)
-
-    kg_extrator = GraphRAGExtractor(
-        llm=llm,
-        extract_prompt=KG_TRIPLET_EXTRACT_TMPL,
-        max_paths_per_chunk=2,
-        parse_fn=parse_fn,
+    pipeline = GraphRAGPipeline()
+    pipeline.build_index(
+        "./tests/Aligner: Efficient Alignment by Learning to Correct.txt"
     )
-
-    graph_store = GraphRAGStore(
-        username=NEO4j_USR,
-        password=NEO4j_PASSWD,
-        url="bolt://localhost:7687",
-    )
-
-    index = PropertyGraphIndex(
-        nodes=nodes,
-        kg_extractors=[kg_extrator],
-        property_graph_store=graph_store,
-        show_progress=True,
-        llm=llm,
-        embed_model=embedding,
-    )
-
-    index.property_graph_store.build_communities()
-
-    query_engine = GraphRAGQueryEngine(
-        graph_store=index.property_graph_store,
-        llm=llm,
-        index=index,
-        similarity_top_k=10,
-    )
-
-    response = query_engine.query(
+    response = pipeline.query(
         "What are the main news discussed in the document?"
     )
-    print(response.response)
-
-
-if __name__ == "__main__":
-    main()
+    print(response)

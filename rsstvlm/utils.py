@@ -28,6 +28,8 @@ embedding = OpenAIEmbedding(
     api_base=BASE_URL,
 )
 
+# TODO: vllm serve qwen
+
 if __name__ == "__main__":
     # Test LLM, written by Gemini 2.5 Pro
     print("Testing LLM connection...")

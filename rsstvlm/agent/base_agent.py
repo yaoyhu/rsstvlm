@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from rsstvlm.models.llms import get_embedding_model, get_llm_model
+from rsstvlm.utils import embedding, llm
 
 
 class BaseAgent(ABC):
@@ -9,8 +9,8 @@ class BaseAgent(ABC):
     """
 
     def __init__(self):
-        self.llm = get_llm_model(thinking=False)
-        self.embedding_model = get_embedding_model()
+        self.llm = llm
+        self.embedding_model = embedding
         self.tools = self._setup_tools()
 
     @abstractmethod
