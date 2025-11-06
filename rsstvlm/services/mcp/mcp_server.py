@@ -9,7 +9,6 @@ class MCPServer:
         self.tools = MCPTools()
 
         # TODO: add more tools
-        self.mcp.add_tool(self.tools.graphrag.build_index)
         self.mcp.add_tool(self.tools.graphrag.query)
 
     def run(self):

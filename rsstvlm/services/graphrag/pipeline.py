@@ -83,17 +83,20 @@ class GraphRAGPipeline:
     """
 
     NAME = "GraphRAG"
-    DESCRIPTION = (
-        "A tool for building and querying a knowledge graph from documents."
-    )
+    DESCRIPTION = "Query an existing Neo4j-backed knowledge graph."
 
     def __init__(self):
         self.index = None
         self.query_engine = None
+        self.graph_store = GraphRAGStore(
+            username=NEO4j_USR,
+            password=NEO4j_PASSWD,
+            url="bolt://localhost:7687",
+        )
 
-    def build_index(self, file_path: str, exist: bool):
+    def build_index(self, file_path: str, exist: bool = False) -> str:
         # TODO: multiple pdfs
-        """Builds the knowledge graph from a single file."""
+        """Build the knowledge graph."""
         documents = SimpleDirectoryReader(input_files=[file_path]).load_data()
         nodes = SentenceSplitter(
             chunk_size=1024,
@@ -107,15 +110,9 @@ class GraphRAGPipeline:
             parse_fn=self._parse_fn,
         )
 
-        graph_store = GraphRAGStore(
-            username=NEO4j_USR,
-            password=NEO4j_PASSWD,
-            url="bolt://localhost:7687",
-        )
-
         if exist:
             self.index = PropertyGraphIndex.from_existing(
-                property_graph_store=graph_store,
+                property_graph_store=self.graph_store,
                 llm=llm,
                 embed_model=embedding,
             )
@@ -123,28 +120,62 @@ class GraphRAGPipeline:
             self.index = PropertyGraphIndex(
                 nodes=nodes,
                 kg_extractors=[kg_extrator],
-                property_graph_store=graph_store,
+                property_graph_store=self.graph_store,
                 show_progress=True,
                 llm=llm,
                 embed_model=embedding,
             )
 
-        self.index.property_graph_store.build_communities()
+        self._create_query_engine()
+        return "Index built successfully."
 
+    def query(self, query_str: str) -> str:
+        """Query the existing Neo4j knowledge graph and return a synthesised answer.
+
+        Use this when you need insights derived from the stored graph data. Provide
+        a natural-language question that references the entities, relationships, or
+        topics embedded in the database, and the tool will aggregate the relevant
+        community summaries into a concise response.
+        """
+        if not self._ensure_query_engine():
+            return (
+                "GraphRAG query engine is not ready. Ensure the Neo4j database "
+                "is running and already populated before querying."
+            )
+        response = self.query_engine.query(query_str)
+        return response.response
+
+    def _create_query_engine(self) -> None:
+        """Prepare the query engine after an index has been initialised."""
+        if not self.index:
+            return
+        self.index.property_graph_store.build_communities()
         self.query_engine = GraphRAGQueryEngine(
             graph_store=self.index.property_graph_store,
             llm=llm,
             index=self.index,
             similarity_top_k=10,
         )
-        return "Index built successfully."
 
-    def query(self, query_str: str) -> str:
-        """Queries the knowledge graph."""
-        if not self.query_engine:
-            return "Index not built. Please build the index first."
-        response = self.query_engine.query(query_str)
-        return response.response
+    def _ensure_query_engine(self) -> bool:
+        """Initialise the query engine from the existing graph store if needed."""
+        if self.query_engine:
+            return True
+        try:
+            if not self.index:
+                self.index = PropertyGraphIndex.from_existing(
+                    property_graph_store=self.graph_store,
+                    llm=llm,
+                    embed_model=embedding,
+                )
+            self._create_query_engine()
+        except Exception as exc:
+            print(f"Failed to initialise GraphRAG query engine: {exc}")
+            self.index = None
+            self.query_engine = None
+            return False
+
+        return self.query_engine is not None
 
     def _parse_fn(response_str: str) -> Any:
         json_pattern = r"\{.*\}"
