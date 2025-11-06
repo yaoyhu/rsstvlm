@@ -1,16 +1,13 @@
 import asyncio
 import json
-import logging
 import re
 from typing import Any
 
 from llama_index.core.llms import ChatMessage, MessageRole
 
 from rsstvlm.agent.base_agent import BaseAgent
+from rsstvlm.logger import agent_logger
 from rsstvlm.services.mcp.mcp_client import MCPClient
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class AgenticRAG(BaseAgent):
@@ -52,7 +49,7 @@ class AgenticRAG(BaseAgent):
                 messages=messages,
                 tools=available_tools,
             )
-            logger.info("Function calling response: %s", response)
+            agent_logger.info("Function calling response: %s", response)
 
             while True:
                 assistant_message = response.message
@@ -94,7 +91,7 @@ class AgenticRAG(BaseAgent):
                 response = self.llm.chat(
                     messages=messages, tools=available_tools
                 )
-                logger.info("Final response: %s", response)
+                agent_logger.info("Final response: %s", response)
         finally:
             await self.client.cleanup()
 

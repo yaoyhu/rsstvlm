@@ -5,6 +5,8 @@ from contextlib import AsyncExitStack
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+from rsstvlm.logger import mcp_logger
+
 
 class MCPClient:
     def __init__(self):
@@ -29,8 +31,9 @@ class MCPClient:
         await self.session.initialize()
         response = await self.session.list_tools()
         tools = response.tools
-        print(
-            "\nConnected to server with tools:", [tool.name for tool in tools]
+        mcp_logger.info(
+            "Connected to MCP server with tools: %s",
+            [tool.name for tool in tools],
         )
         return tools
 

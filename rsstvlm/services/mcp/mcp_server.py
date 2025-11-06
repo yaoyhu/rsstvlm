@@ -16,6 +16,5 @@ class MCPServer:
 
 
 if __name__ == "__main__":
-    print("🌐 Running MCP server...")
     mcp_server = MCPServer()
     mcp_server.run()

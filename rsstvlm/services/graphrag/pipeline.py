@@ -7,6 +7,7 @@ from llama_index.core import (
     SimpleDirectoryReader,
 )
 from llama_index.core.node_parser import SentenceSplitter
+from rsstvlm.logger import rag_logger
 from rsstvlm.services.graphrag.extrator import GraphRAGExtractor
 from rsstvlm.services.graphrag.query import GraphRAGQueryEngine
 from rsstvlm.services.graphrag.store import GraphRAGStore
@@ -143,6 +144,7 @@ class GraphRAGPipeline:
                 "is running and already populated before querying."
             )
         response = self.query_engine.query(query_str)
+        rag_logger.info("GraphRAG response: %s", response.response)
         return response.response
 
     def _create_query_engine(self) -> None:
@@ -169,8 +171,8 @@ class GraphRAGPipeline:
                     embed_model=embedding,
                 )
             self._create_query_engine()
-        except Exception as exc:
-            print(f"Failed to initialise GraphRAG query engine: {exc}")
+        except Exception:
+            rag_logger.exception("Failed to initialise GraphRAG query engine")
             self.index = None
             self.query_engine = None
             return False
@@ -205,8 +207,10 @@ class GraphRAGPipeline:
                 for relation in data.get("relationships", [])
             ]
             return entities, relationships
-        except json.JSONDecodeError as e:
-            print("Error parsing JSON:", e)
+        except json.JSONDecodeError:
+            rag_logger.exception(
+                "Error parsing JSON returned by GraphRAG extractor"
+            )
             return entities, relationships
 
 
