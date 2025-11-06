@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
-from rsstvlm.utils import embedding, llm
+from rsstvlm.utils import embedding, qwen3_vl, qwen3_vl_function
 
 
 class BaseAgent(ABC):
@@ -9,11 +10,12 @@ class BaseAgent(ABC):
     """
 
     def __init__(self):
-        self.llm = llm
+        self.llm_function = qwen3_vl_function
+        self.llm = qwen3_vl
         self.embedding_model = embedding
-        self.tools = self._setup_tools()
+        self.tools: list[Any] = []
 
     @abstractmethod
-    def _setup_tools(self) -> list:
-        """Must be implmented by Child class."""
-        pass
+    async def _setup_tools(self) -> list[Any]:
+        """Asynchronously initialise any tools required by the agent."""
+        raise NotImplementedError
