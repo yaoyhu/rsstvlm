@@ -49,7 +49,6 @@ class AgenticRAG(BaseAgent):
                 messages=messages,
                 tools=available_tools,
             )
-            agent_logger.info("Function calling response: %s", response)
 
             while True:
                 assistant_message = response.message
@@ -59,8 +58,12 @@ class AgenticRAG(BaseAgent):
 
                 tool_calls = self._extract_tool_calls(response)
                 if not tool_calls:
+                    agent_logger.info(
+                        "No tools been chosen, answer by LLM itself."
+                    )
                     break
 
+                agent_logger.info("Calling tools: %s", tool_calls)
                 messages.append(
                     ChatMessage(
                         role=MessageRole.ASSISTANT,
@@ -88,10 +91,13 @@ class AgenticRAG(BaseAgent):
                             content=result_text,
                         )
                     )
-                response = self.llm.chat(
-                    messages=messages, tools=available_tools
-                )
-                agent_logger.info("Final response: %s", response)
+            response = self.llm.chat(messages=messages, tools=available_tools)
+            agent_logger.info(
+                "Final response: %s",
+                response.raw.choices[0].message.model_extra.get(
+                    "reasoning_content"
+                ),
+            )
         finally:
             await self.client.cleanup()
 
