@@ -3,11 +3,11 @@ import json
 import re
 from typing import Any
 
-from llama_index.core.llms import ChatMessage, MessageRole
+from llama_index.core.llms import ChatMessage, ChatResponse, MessageRole
 
 from rsstvlm.agent.base_agent import BaseAgent
 from rsstvlm.logger import agent_logger
-from rsstvlm.services.mcp.mcp_client import MCPClient
+from rsstvlm.services.mcp.client import MCPClient
 
 
 class AgenticRAG(BaseAgent):
@@ -44,193 +44,110 @@ class AgenticRAG(BaseAgent):
 
         final_chunks: list[str] = []
 
-        try:
-            response = self.llm_function.chat(
+        while True:
+            response: ChatResponse = self.llm_function.chat(
                 messages=messages,
                 tools=available_tools,
             )
+            assistant_message = response.message
 
-            while True:
-                assistant_message = response.message
-                assistant_text = self._message_text(assistant_message)
-                if assistant_text:
-                    final_chunks.append(assistant_text)
+            messages.append(assistant_message)
 
-                tool_calls = self._extract_tool_calls(response)
-                if not tool_calls:
-                    agent_logger.info(
-                        "No tools been chosen, answer by LLM itself."
+            assistant_text = self._message_text(assistant_message)
+            if assistant_text:
+                final_chunks.append(assistant_text)
+
+            # handle tool calls
+            tool_call_blocks = [
+                block
+                for block in getattr(assistant_message, "blocks", [])
+                if block.block_type == "tool_call"
+            ]
+
+            if not tool_call_blocks:
+                agent_logger.info("No tools chosen, answer by LLM itself.")
+                break
+
+            for block in tool_call_blocks:
+                tool_name = block.tool_name
+                tool_kwargs_str = block.tool_kwargs
+
+                agent_logger.info(
+                    "Calling tool '%s' with args: %s",
+                    tool_name,
+                    tool_kwargs_str,
+                )
+
+                try:
+                    tool_args = json.loads(tool_kwargs_str.strip())
+                except json.JSONDecodeError:
+                    agent_logger.error(
+                        "Failed to parse tool arguments JSON: %s",
+                        tool_kwargs_str,
                     )
-                    break
+                    # Append an error message for the LLM to see.
+                    messages.append(
+                        ChatMessage(
+                            role=MessageRole.TOOL,
+                            content=f"Error: Could not parse arguments for tool {tool_name}.",
+                            additional_kwargs={
+                                "tool_call_id": block.tool_call_id
+                            },
+                        )
+                    )
+                    continue
 
-                agent_logger.info("Calling tools: %s", tool_calls)
+                result_content = await self.client.call_tool(
+                    tool_name, tool_args
+                )
+                result_text = self._render_tool_content(result_content)
+                final_chunks.append(
+                    f"\n[Tool {tool_name} used with args: {self._format_args(tool_args)}]\n{result_text}"
+                )
+
                 messages.append(
                     ChatMessage(
-                        role=MessageRole.ASSISTANT,
-                        content=assistant_text,
-                        additional_kwargs={"tool_calls": tool_calls},
+                        role=MessageRole.TOOL,
+                        content=result_text,
+                        additional_kwargs={"tool_call_id": block.tool_call_id},
                     )
                 )
 
-                for tool_call in tool_calls:
-                    tool_name, tool_args = self._parse_tool_call(tool_call)
-                    if not tool_name:
-                        continue
-
-                    result_content = await self.client.call_tool(
-                        tool_name, tool_args
-                    )
-                    result_text = self._render_tool_content(result_content)
-                    final_chunks.append(
-                        f"\n[Tool {tool_name} used with args: {self._format_args(tool_args)}]\n{result_text}"
-                    )
-
-                    messages.append(
-                        ChatMessage(
-                            role=MessageRole.USER,
-                            content=result_text,
-                        )
-                    )
-            response = self.llm.chat(messages=messages, tools=available_tools)
-            agent_logger.info(
-                "Final response: %s",
-                response.raw.choices[0].message.model_extra.get(
-                    "reasoning_content"
-                ),
-            )
-        finally:
-            await self.client.cleanup()
+        agent_logger.info("Agent finished streaming.")
 
         return "\n".join(chunk for chunk in final_chunks if chunk)
 
     def _format_tools(self) -> list[dict[str, Any]]:
         """
-        Format tools for Qwen function calling, refer to:
-        https://qwen.readthedocs.io/zh-cn/latest/framework/function_call.html
+        Reference:
+            - https://qwen.readthedocs.io/zh-cn/latest/framework/function_call.html
+            - mcp.types.Tool
         """
-        formatted = []
+        formatted_tools = []
         for tool in self.tools:
-            raw_parameters = getattr(tool, "inputSchema", None)
-
-            if hasattr(raw_parameters, "model_dump"):
-                parameters = raw_parameters.model_dump(exclude_none=True)
-            elif isinstance(raw_parameters, dict):
-                parameters = raw_parameters
-            else:
-                parameters = {}
+            parameters = getattr(tool, "inputSchema", None)
 
             if not isinstance(parameters, dict):
-                parameters = {}
+                parameters = {"type": "object", "properties": {}}
 
-            parameters.setdefault("type", "object")
-            parameters.setdefault("properties", {})
-            parameters.setdefault("required", [])
+            tool_name = getattr(tool, "name", None)
+            tool_description = getattr(tool, "description", "") or ""
 
-            formatted.append(
+            if not tool_name:
+                agent_logger.warning("Skipping a tool because it has no name.")
+                continue
+
+            formatted_tools.append(
                 {
                     "type": "function",
                     "function": {
-                        "name": tool.name,
-                        "description": getattr(tool, "description", "") or "",
+                        "name": tool_name,
+                        "description": tool_description,
                         "parameters": parameters,
                     },
                 }
             )
-        return formatted
-
-    @staticmethod
-    def _extract_tool_calls(response) -> list[Any]:
-        tool_calls: list[Any] = []
-        for source in (
-            getattr(response, "additional_kwargs", None),
-            getattr(response.message, "additional_kwargs", None),
-        ):
-            if not source:
-                continue
-            calls = source.get("tool_calls")
-            if isinstance(calls, list):
-                tool_calls.extend(calls)
-
-        if tool_calls:
-            return tool_calls
-
-        raw_response = getattr(response, "raw", None)
-        if not raw_response:
-            return tool_calls
-
-        choices = getattr(raw_response, "choices", []) or []
-        for choice in choices:
-            message = getattr(choice, "message", None)
-            reasoning_content = getattr(message, "reasoning_content", None)
-            if reasoning_content:
-                tool_calls.extend(
-                    AgenticRAG._parse_reasoning_tool_calls(reasoning_content)
-                )
-        return tool_calls
-
-    @staticmethod
-    def _parse_reasoning_tool_calls(
-        reasoning_content: str,
-    ) -> list[dict[str, Any]]:
-        tool_calls: list[dict[str, Any]] = []
-        pattern = r"<tool_call>\s*(\{.*?\})\s*</tool_call>"
-        call_index = 0
-        for match in re.finditer(pattern, reasoning_content, flags=re.S):
-            payload = match.group(1)
-            try:
-                parsed = json.loads(payload)
-            except json.JSONDecodeError:
-                continue
-
-            name = parsed.get("name")
-            arguments = parsed.get("arguments", {})
-            serialized_args = AgenticRAG._format_args(arguments)
-            tool_calls.append(
-                {
-                    "id": f"call_{call_index}",
-                    "type": "function",
-                    "function": {
-                        "name": name,
-                        "arguments": serialized_args,
-                    },
-                }
-            )
-            call_index += 1
-        return tool_calls
-
-    @staticmethod
-    def _parse_tool_call(tool_call: Any) -> tuple[str | None, dict[str, Any]]:
-        function_call = {}
-        if isinstance(tool_call, dict):
-            function_call = tool_call.get("function", {}) or {}
-        elif hasattr(tool_call, "function"):
-            function_call = getattr(tool_call, "function", {}) or {}
-
-        name = (
-            function_call.get("name")
-            if isinstance(function_call, dict)
-            else None
-        )
-        raw_args = (
-            function_call.get("arguments")
-            if isinstance(function_call, dict)
-            else {}
-        )
-
-        if isinstance(raw_args, dict):
-            args = raw_args
-        elif isinstance(raw_args, str):
-            try:
-                parsed = json.loads(raw_args)
-                args = (
-                    parsed if isinstance(parsed, dict) else {"input": parsed}
-                )
-            except json.JSONDecodeError:
-                args = {"input": raw_args}
-        else:
-            args = {}
-
-        return name, args
+        return formatted_tools
 
     @staticmethod
     def _render_tool_content(content: Any) -> str:
