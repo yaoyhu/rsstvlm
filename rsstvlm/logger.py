@@ -5,7 +5,8 @@ RESET = "\033[0m"
 
 logging.basicConfig(
     level=logging.INFO,
-    format=f"{BOLD_BLUE}[%(filename)s:%(lineno)d:%(funcName)s]{RESET} %(message)s",
+    format=f"{BOLD_BLUE}%(asctime)s [%(filename)s:%(lineno)d:%(funcName)s]{RESET} %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[logging.FileHandler("rsstvlm.log"), logging.StreamHandler()],
 )
 
