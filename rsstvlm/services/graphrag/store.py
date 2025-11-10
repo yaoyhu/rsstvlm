@@ -6,7 +6,7 @@ from graspologic.partition import hierarchical_leiden
 from llama_index.core.llms import ChatMessage
 from llama_index.graph_stores.neo4j import Neo4jPropertyGraphStore
 from llama_index.llms.openai import OpenAI
-from rsstvlm.utils import llm
+from rsstvlm.utils import qwen3_plus
 
 
 class GraphRAGStore(Neo4jPropertyGraphStore):
@@ -30,7 +30,7 @@ class GraphRAGStore(Neo4jPropertyGraphStore):
             ),
             ChatMessage(role="user", content=text),
         ]
-        response = llm.chat(messages)
+        response = qwen3_plus.chat(messages)
         clean_response = re.sub(r"^assistant:\s*", "", str(response)).strip()
         return clean_response
 

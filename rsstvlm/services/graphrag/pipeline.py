@@ -11,7 +11,12 @@ from rsstvlm.logger import rag_logger
 from rsstvlm.services.graphrag.extrator import GraphRAGExtractor
 from rsstvlm.services.graphrag.query import GraphRAGQueryEngine
 from rsstvlm.services.graphrag.store import GraphRAGStore
-from rsstvlm.utils import NEO4j_PASSWD, NEO4j_USR, embedding, llm
+from rsstvlm.utils import (
+    NEO4j_PASSWD,
+    NEO4j_USR,
+    qwen3_embedding_8b,
+    qwen3_plus,
+)
 
 KG_TRIPLET_EXTRACT_TMPL = """
 -Goal-
@@ -105,7 +110,7 @@ class GraphRAGPipeline:
         ).get_nodes_from_documents(documents)
 
         kg_extrator = GraphRAGExtractor(
-            llm=llm,
+            llm=qwen3_plus,
             extract_prompt=KG_TRIPLET_EXTRACT_TMPL,
             max_paths_per_chunk=2,
             parse_fn=self._parse_fn,
@@ -114,8 +119,8 @@ class GraphRAGPipeline:
         if exist:
             self.index = PropertyGraphIndex.from_existing(
                 property_graph_store=self.graph_store,
-                llm=llm,
-                embed_model=embedding,
+                llm=qwen3_plus,
+                embed_model=qwen3_embedding_8b,
             )
         else:
             self.index = PropertyGraphIndex(
@@ -123,8 +128,8 @@ class GraphRAGPipeline:
                 kg_extractors=[kg_extrator],
                 property_graph_store=self.graph_store,
                 show_progress=True,
-                llm=llm,
-                embed_model=embedding,
+                llm=qwen3_plus,
+                embed_model=qwen3_embedding_8b,
             )
 
         self._create_query_engine()
@@ -154,7 +159,7 @@ class GraphRAGPipeline:
         self.index.property_graph_store.build_communities()
         self.query_engine = GraphRAGQueryEngine(
             graph_store=self.index.property_graph_store,
-            llm=llm,
+            llm=qwen3_plus,
             index=self.index,
             similarity_top_k=10,
         )
@@ -167,8 +172,8 @@ class GraphRAGPipeline:
             if not self.index:
                 self.index = PropertyGraphIndex.from_existing(
                     property_graph_store=self.graph_store,
-                    llm=llm,
-                    embed_model=embedding,
+                    llm=qwen3_plus,
+                    embed_model=qwen3_embedding_8b,
                 )
             self._create_query_engine()
         except Exception:
@@ -179,7 +184,7 @@ class GraphRAGPipeline:
 
         return self.query_engine is not None
 
-    def _parse_fn(response_str: str) -> Any:
+    def _parse_fn(self, response_str: str) -> Any:
         json_pattern = r"\{.*\}"
         match = re.search(json_pattern, response_str, re.DOTALL)
         entities = []
