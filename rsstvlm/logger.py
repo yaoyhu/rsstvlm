@@ -10,6 +10,12 @@ logging.basicConfig(
     handlers=[logging.FileHandler("rsstvlm.log"), logging.StreamHandler()],
 )
 
+# Suppress HTTP request logs
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("requests").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
 rag_logger = logging.getLogger("rag_logger")
 agent_logger = logging.getLogger("agent_logger")
 mcp_logger = logging.getLogger("mcp_logger")
