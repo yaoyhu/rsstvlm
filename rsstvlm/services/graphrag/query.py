@@ -6,6 +6,7 @@ from llama_index.core.query_engine import CustomQueryEngine
 from rsstvlm.services.graphrag.store import GraphRAGStore
 
 
+# TODO: build a better query engine
 class GraphRAGQueryEngine(CustomQueryEngine):
     graph_store: GraphRAGStore
     index: PropertyGraphIndex

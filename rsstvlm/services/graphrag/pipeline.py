@@ -138,19 +138,37 @@ class GraphRAGPipeline:
     def query(self, query_str: str) -> str:
         """Query the existing Neo4j knowledge graph and return a synthesised answer.
 
-        Use this when you need insights derived from the stored graph data. Provide
-        a natural-language question that references the entities, relationships, or
-        topics embedded in the database, and the tool will aggregate the relevant
-        community summaries into a concise response.
+        This tool enables the Agent to retrieve and reason over structured knowledge
+        stored in the Neo4j database. It translates a natural-language question into
+        Cypher-based graph queries, extracts relevant entities, relationships, and
+        their contextual information, and produces a concise, human-readable summary
+        of the findings.
+
+        Typical use cases:
+            - Answering factual or analytical questions about stored entities.
+            - Summarizing the relationships or patterns found in a subgraph.
+            - Extracting aggregated insights from community or cluster summaries.
+
+        Args:
+            query_str (str):
+                A natural-language query describing what to retrieve or analyze.
+                The query should reference known entities, relationships, or topics
+                that exist within the graph.
+
+        Returns:
+            str:
+                A synthesized natural-language answer summarizing the most relevant
+                information retrieved from the Neo4j graph. The result is optimized
+                for readability and direct presentation to the user.
         """
         if not self._ensure_query_engine():
             return (
                 "GraphRAG query engine is not ready. Ensure the Neo4j database "
                 "is running and already populated before querying."
             )
-        response = self.query_engine.query(query_str)
-        rag_logger.info("GraphRAG response: %s", response.response)
-        return response.response
+        response = self.query_engine.custom_query(query_str)
+        rag_logger.info("GraphRAG response: %s", response)
+        return response
 
     def _create_query_engine(self) -> None:
         """Prepare the query engine after an index has been initialised."""
@@ -222,9 +240,9 @@ class GraphRAGPipeline:
 def main():
     pipeline = GraphRAGPipeline()
     pipeline.build_index(
-        "./tests/Aligner: Efficient Alignment by Learning to Correct.txt"
+        "./tests/Accurate_and_Full-Coverage_Retrieval_of_Total_Column_Water_Vapor_From_Chinese_UV-VIS_Satellites_Using_an_Interpretable_Machine_Learning_Approach.pdf",
     )
-    response = pipeline.query(
-        "What are the main news discussed in the document?"
-    )
-    print(response)
+
+
+if __name__ == "__main__":
+    main()

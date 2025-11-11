@@ -1,6 +1,5 @@
 import asyncio
 import json
-import re
 from typing import Any
 
 from llama_index.core.llms import ChatMessage, ChatResponse, MessageRole
@@ -50,9 +49,9 @@ class AgenticRAG(BaseAgent):
                 tools=available_tools,
             )
             assistant_message = response.message
-
             messages.append(assistant_message)
 
+            # what is this?
             assistant_text = self._message_text(assistant_message)
             if assistant_text:
                 final_chunks.append(assistant_text)
@@ -65,7 +64,9 @@ class AgenticRAG(BaseAgent):
             ]
 
             if not tool_call_blocks:
-                agent_logger.info("No tools chosen, answer by LLM itself.")
+                agent_logger.info(
+                    "No tools chosen, proceeding to final response."
+                )
                 break
 
             for block in tool_call_blocks:
@@ -113,9 +114,9 @@ class AgenticRAG(BaseAgent):
                     )
                 )
 
-        agent_logger.info("Agent finished streaming.")
-
-        return "\n".join(chunk for chunk in final_chunks if chunk)
+        final_json = "\n".join(chunk for chunk in final_chunks if chunk)
+        agent_logger.info(final_json)
+        return final_json
 
     def _format_tools(self) -> list[dict[str, Any]]:
         """

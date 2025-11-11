@@ -15,9 +15,14 @@ class MCPServer:
             https://gofastmcp.com/patterns/decorating-methods#instance-methods
         """
         from rsstvlm.services.graphrag.pipeline import GraphRAGPipeline
+        from rsstvlm.services.tools.plot import H5Plot
 
         pipeline = GraphRAGPipeline()
+        h5plot = H5Plot()
         mcp.tool(pipeline.query)
+        mcp.tool(h5plot.plot)
+        mcp.tool(h5plot.structure)
+        mcp.tool(h5plot.visual_explain)
 
     def run(self):
         """
