@@ -68,3 +68,11 @@ qwen3_embedding_8b = OpenAIEmbedding(
     api_key="not-needed",
     api_base="http://localhost:8001/v1/",
 )
+
+qwen3_vl_30b = OpenAILike(
+    model="qwen3-vl-30b",
+    api_key="not-needed",
+    api_base="http://localhost:8002/v1/",
+    max_tokens=1024,
+    is_chat_model=True,
+)  # for final visual answer with vllm

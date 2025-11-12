@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from rsstvlm.utils import qwen3_embedding_8b, qwen3_vl, qwen3_vl_function
+from rsstvlm.utils import qwen3_embedding_8b, qwen3_vl_30b, qwen3_vl_function
 
 
 class BaseAgent(ABC):
@@ -11,7 +11,7 @@ class BaseAgent(ABC):
 
     def __init__(self):
         self.llm_function = qwen3_vl_function
-        self.llm = qwen3_vl
+        self.llm = qwen3_vl_30b
         self.embedding_model = qwen3_embedding_8b
         self.tools: list[Any] = []
 

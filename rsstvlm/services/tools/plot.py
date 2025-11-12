@@ -9,7 +9,7 @@ from llama_index.core.llms import (
     TextBlock,
 )
 
-from rsstvlm.utils import qwen3_vl
+from rsstvlm.utils import qwen3_vl_30b
 
 
 class H5Plot:
@@ -128,7 +128,7 @@ class H5Plot:
             )
         ]
 
-        response = qwen3_vl.chat(
+        response = qwen3_vl_30b.chat(
             messages,
             temperature=0,
             max_tokens=1024,
