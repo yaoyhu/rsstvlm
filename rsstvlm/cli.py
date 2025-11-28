@@ -1,6 +1,7 @@
 import argparse
 
-from rsstvlm.agent.agentic_rag import AgenticRAG
+from rsstvlm.agent.workflow import AgentWorkflow
+from rsstvlm.utils import qwen3_vl_30b_function
 
 __project__: str = "rsstvlm"
 __version__: str = "0.0.2"
@@ -36,10 +37,12 @@ async def main():
 
     # assert options.query is not None, "The --query argument is required."
     querys = [
-        # "Given graph database, What differs from Aligner and RLHF?",
         "Given H5 file path /satellite/EMI_NO2/EMI_NO2_LV2_v2.0/GF5_EMI_20190608_005765_L10000007826_VI1.h5, follow these steps: Step 1: Peek the structure of the h5 file to understand its contents. Step 2: Plot the dataset and save it, then return the output image path and stop. Step 3: Use visual_explain to analyze and describe the image content in detail. Stop after completing all steps.",
         # "Analyze the image and give a detailed description combine with database knowledge of CloudFraction.",
     ]
 
-    agent = await AgenticRAG.create()
-    await agent.stream(querys[0])
+    agent = await AgentWorkflow.create(
+        qwen3_vl_30b_function, timeout=120, verbose=True
+    )
+    ret = await agent.run(input=querys[0])
+    print(ret["response"])
