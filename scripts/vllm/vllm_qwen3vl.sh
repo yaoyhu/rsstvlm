@@ -30,12 +30,14 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3
 uv run vllm serve Qwen/Qwen3-VL-30B-A3B-Instruct \
     --served-model-name qwen3-vl-30b \
     --tensor-parallel-size 4 \
-    --gpu-memory-utilization 0.95 \
-    --max-model-len 8192 \
+    --gpu-memory-utilization 0.90 \
+    --max-model-len 262144 \
+    --enable-auto-tool-choice \
+    --tool-call-parser hermes \
     --max-num-seqs 256 \
     --swap-space 32 \
     --host 0.0.0.0 \
-    --port 8002
+    --port 8003
 
 # 4. 打印作业结束时间
 echo ""
