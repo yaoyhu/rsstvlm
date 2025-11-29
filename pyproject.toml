@@ -22,9 +22,9 @@ dependencies = [
     "xarray>=2025.10.1",
     "xesmf>=0.8.10",
     "xlrd>=2.0.2",
-    "torch==2.8.0",
-    "torchvision==0.23.0",
-    "torchaudio==2.8.0",
+    "torch==2.9.0",
+    "torchvision==0.24.0",
+    "torchaudio==2.9.0",
     "qwen-vl-utils==0.0.14",
     "sentence-transformers>=5.1.1",
     "accelerate>=1.11.0",
@@ -34,6 +34,8 @@ dependencies = [
     "llama-index-graph-stores-neo4j>=0.5.1",
     "nvitop>=1.5.3",
     "fastmcp>=2.12.4",
+    "streamlit>=1.51.0",
+    "llama-index-workflows>=2.8.3",
 ]
 
 [tool.uv.sources]
