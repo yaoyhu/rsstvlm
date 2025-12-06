@@ -14,8 +14,8 @@ from rsstvlm.services.graphrag.store import GraphRAGStore
 from rsstvlm.utils import (
     NEO4j_PASSWD,
     NEO4j_USR,
+    deepseek,
     qwen3_embedding_8b,
-    qwen3_plus,
 )
 
 KG_TRIPLET_EXTRACT_TMPL = """
@@ -110,8 +110,8 @@ class GraphRAGPipeline:
         ).get_nodes_from_documents(documents)
 
         kg_extrator = GraphRAGExtractor(
-            llm=qwen3_plus,
             extract_prompt=KG_TRIPLET_EXTRACT_TMPL,
+            llm=deepseek,
             max_paths_per_chunk=2,
             parse_fn=self._parse_fn,
         )
@@ -119,7 +119,7 @@ class GraphRAGPipeline:
         if exist:
             self.index = PropertyGraphIndex.from_existing(
                 property_graph_store=self.graph_store,
-                llm=qwen3_plus,
+                llm=deepseek,
                 embed_model=qwen3_embedding_8b,
             )
         else:
@@ -128,7 +128,7 @@ class GraphRAGPipeline:
                 kg_extractors=[kg_extrator],
                 property_graph_store=self.graph_store,
                 show_progress=True,
-                llm=qwen3_plus,
+                llm=deepseek,
                 embed_model=qwen3_embedding_8b,
             )
 
@@ -177,7 +177,7 @@ class GraphRAGPipeline:
         self.index.property_graph_store.build_communities()
         self.query_engine = GraphRAGQueryEngine(
             graph_store=self.index.property_graph_store,
-            llm=qwen3_plus,
+            llm=deepseek,
             index=self.index,
             similarity_top_k=10,
         )
@@ -190,7 +190,7 @@ class GraphRAGPipeline:
             if not self.index:
                 self.index = PropertyGraphIndex.from_existing(
                     property_graph_store=self.graph_store,
-                    llm=qwen3_plus,
+                    llm=deepseek,
                     embed_model=qwen3_embedding_8b,
                 )
             self._create_query_engine()

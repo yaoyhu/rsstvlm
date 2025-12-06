@@ -9,7 +9,7 @@ from rsstvlm.agent.workflow import AgentWorkflow, StreamEvent
 from rsstvlm.utils import (
     LLM_MODEL,
     QWEN3_VL_30B_API_BASE,
-    qwen3_vl_30b_function,
+    deepseek_agent,
 )
 
 client = OpenAI(api_key="EMPTY", base_url=QWEN3_VL_30B_API_BASE)
@@ -28,7 +28,7 @@ st.set_page_config(
 def get_agent():
     """Initialize agent once and cache it."""
     return asyncio.run(
-        AgentWorkflow.create(qwen3_vl_30b_function, timeout=120, verbose=True)
+        AgentWorkflow.create(deepseek_agent, timeout=120, verbose=True)
     )
 
 
@@ -78,7 +78,7 @@ with st.sidebar:
     st.divider()
     st.markdown("### 📌 使用说明")
     st.markdown("""
-    - 启用 Agent 可以查看并使用工具
+    - 启用 Agent 可以查看工具
     - 目前工具较少，后续会完善
     """)  # noqa: RUF001
 

@@ -15,7 +15,7 @@ from llama_index.core.workflow import (
 from llama_index.llms.openai_like import OpenAILike
 
 from rsstvlm.services.mcp.client import MCPClient
-from rsstvlm.utils import qwen3_vl_30b_function
+from rsstvlm.utils import deepseek
 
 
 class InputEvent(Event):
@@ -182,9 +182,9 @@ class AgentWorkflow(Workflow):
 
 async def main():
     agent = await AgentWorkflow.create(
-        qwen3_vl_30b_function, timeout=120, verbose=True
+        deepseek, timeout=120, verbose=True
     )
-    ret = await agent.run(input="Given database, Who is Ran?")
+    ret = await agent.run(input="Querying the database, what does excessive NO2 cause?")
     print(ret["response"])
 
 
