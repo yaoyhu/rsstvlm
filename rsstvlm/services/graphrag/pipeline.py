@@ -1,5 +1,4 @@
 import json
-import re
 from typing import Any
 
 from llama_index.core import (
@@ -8,6 +7,7 @@ from llama_index.core import (
 )
 from llama_index.core.node_parser import SentenceSplitter
 from rsstvlm.logger import rag_logger
+from rsstvlm.prompts.extraction import EXTRACTION
 from rsstvlm.services.graphrag.extrator import GraphRAGExtractor
 from rsstvlm.services.graphrag.query import GraphRAGQueryEngine
 from rsstvlm.services.graphrag.store import GraphRAGStore
@@ -17,70 +17,6 @@ from rsstvlm.utils import (
     deepseek,
     qwen3_embedding_8b,
 )
-
-KG_TRIPLET_EXTRACT_TMPL = """
--Goal-
-Given a text document, identify all entities and their entity types from the text and all relationships among the identified entities.
-Given the text, extract up to {max_knowledge_triplets} entity-relation triplets.
-
--Steps-
-1. Identify all entities. For each identified entity, extract the following information:
-- entity_name: Name of the entity, capitalized
-- entity_type: Type of the entity
-- entity_description: Comprehensive description of the entity's attributes and activities
-
-2. From the entities identified in step 1, identify all pairs of (source_entity, target_entity) that are *clearly related* to each other.
-For each pair of related entities, extract the following information:
-- source_entity: name of the source entity, as identified in step 1
-- target_entity: name of the target entity, as identified in step 1
-- relation: relationship between source_entity and target_entity
-- relationship_description: explanation as to why you think the source entity and the target entity are related to each other
-
-3. Output Formatting:
-- Return the result in valid JSON format with two keys: 'entities' (list of entity objects) and 'relationships' (list of relationship objects).
-- Exclude any text outside the JSON structure (e.g., no explanations or comments).
-- If no entities or relationships are identified, return empty lists: { "entities": [], "relationships": [] }.
-
--An Output Example-
-{
-  "entities": [
-    {
-      "entity_name": "Albert Einstein",
-      "entity_type": "Person",
-      "entity_description": "Albert Einstein was a theoretical physicist who developed the theory of relativity and made significant contributions to physics."
-    },
-    {
-      "entity_name": "Theory of Relativity",
-      "entity_type": "Scientific Theory",
-      "entity_description": "A scientific theory developed by Albert Einstein, describing the laws of physics in relation to observers in different frames of reference."
-    },
-    {
-      "entity_name": "Nobel Prize in Physics",
-      "entity_type": "Award",
-      "entity_description": "A prestigious international award in the field of physics, awarded annually by the Royal Swedish Academy of Sciences."
-    }
-  ],
-  "relationships": [
-    {
-      "source_entity": "Albert Einstein",
-      "target_entity": "Theory of Relativity",
-      "relation": "developed",
-      "relationship_description": "Albert Einstein is the developer of the theory of relativity."
-    },
-    {
-      "source_entity": "Albert Einstein",
-      "target_entity": "Nobel Prize in Physics",
-      "relation": "won",
-      "relationship_description": "Albert Einstein won the Nobel Prize in Physics in 1921."
-    }
-  ]
-}
-
--Real Data-
-######################
-text: {text}
-######################
-output:"""
 
 
 class GraphRAGPipeline:
@@ -101,17 +37,18 @@ class GraphRAGPipeline:
         )
 
     def build_index(self, file_path: str, exist: bool = False) -> str:
-        # TODO: multiple pdfs
         """Build the knowledge graph."""
-        documents = SimpleDirectoryReader(input_files=[file_path]).load_data()
+        documents = SimpleDirectoryReader(
+            input_dir=file_path, num_files_limit=50
+        ).load_data(show_progress=True)
         nodes = SentenceSplitter(
             chunk_size=1024,
             chunk_overlap=20,
         ).get_nodes_from_documents(documents)
 
         kg_extrator = GraphRAGExtractor(
-            extract_prompt=KG_TRIPLET_EXTRACT_TMPL,
             llm=deepseek,
+            extract_prompt=EXTRACTION,
             max_paths_per_chunk=2,
             parse_fn=self._parse_fn,
         )
@@ -132,7 +69,7 @@ class GraphRAGPipeline:
                 embed_model=qwen3_embedding_8b,
             )
 
-        self._create_query_engine()
+        # self._create_query_engine()
         return "Index built successfully."
 
     def query(self, query_str: str) -> str:
@@ -203,45 +140,57 @@ class GraphRAGPipeline:
         return self.query_engine is not None
 
     def _parse_fn(self, response_str: str) -> Any:
-        json_pattern = r"\{.*\}"
-        match = re.search(json_pattern, response_str, re.DOTALL)
         entities = []
         relationships = []
-        if not match:
-            return entities, relationships
-        json_str = match.group(0)
+
         try:
-            data = json.loads(json_str)
+            data = json.loads(response_str.strip())
+        except json.JSONDecodeError:
+            start = response_str.find("{")
+            end = response_str.rfind("}")
+            if start == -1 or end == -1 or start >= end:
+                rag_logger.warning("No valid JSON found in response")
+                return entities, relationships
+            json_str = response_str[start : end + 1]
+            try:
+                data = json.loads(json_str)
+            except json.JSONDecodeError as e:
+                rag_logger.exception(f"Error parsing JSON: {e}")
+                rag_logger.debug(f"Attempted to parse: {json_str[:500]}...")
+                return entities, relationships
+
+        try:
             entities = [
                 (
                     entity["entity_name"],
                     entity["entity_type"],
-                    entity["entity_description"],
+                    entity.get("entity_description", ""),
                 )
                 for entity in data.get("entities", [])
             ]
             relationships = [
                 (
-                    relation["source_entity"],
-                    relation["target_entity"],
-                    relation["relation"],
-                    relation["relationship_description"],
+                    rel["source_entity"],
+                    rel["target_entity"],
+                    rel.get("relation")
+                    or rel.get("relationship", "RELATED_TO"),
+                    rel.get("relationship_description", ""),
                 )
-                for relation in data.get("relationships", [])
+                for rel in data.get("relationships", [])
             ]
-            return entities, relationships
-        except json.JSONDecodeError:
-            rag_logger.exception(
-                "Error parsing JSON returned by GraphRAG extractor"
+            rag_logger.info(
+                f"Parsed {len(entities)} entities, {len(relationships)} relationships"
             )
-            return entities, relationships
+        except (KeyError, TypeError) as e:
+            rag_logger.exception(f"Error extracting data from JSON: {e}")
+
+        return entities, relationships
 
 
 def main():
     pipeline = GraphRAGPipeline()
-    pipeline.build_index(
-        "./tests/Accurate_and_Full-Coverage_Retrieval_of_Total_Column_Water_Vapor_From_Chinese_UV-VIS_Satellites_Using_an_Interpretable_Machine_Learning_Approach.pdf",
-    )
+    pipeline.build_index(file_path="/satellite/d3/yaoyhu/rsstvlm/raw_papers/")
+    pipeline.query("Querying the database, what does excessive NO2 cause?")
 
 
 if __name__ == "__main__":
