@@ -87,7 +87,7 @@ class AgentWorkflow(Workflow):
         memory.put(user_msg)
 
         # get chat history
-        chat_history = memory.get()
+        chat_history = memory.get_all()
 
         # update context
         await ctx.store.set("memory", memory)
@@ -183,15 +183,13 @@ class AgentWorkflow(Workflow):
         await ctx.store.set("sources", sources)
         await ctx.store.set("memory", memory)
 
-        chat_history = memory.get()
+        chat_history = memory.get_all()
         return InputEvent(input=chat_history)
 
 
 async def main():
-    agent = await AgentWorkflow.create(
-        deepseek, timeout=120, verbose=True
-    )
-    ret = await agent.run(input="Querying the database, what does excessive NO2 cause?")
+    agent = await AgentWorkflow.create(deepseek, timeout=1200, verbose=True)
+    ret = await agent.run(input="在网络搜索 NO2 过多会导致什么?")
     print(ret["response"])
 
 
