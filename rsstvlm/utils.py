@@ -26,6 +26,9 @@ QWEN_API_BASE = os.getenv("QWEN_API_BASE")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_API_BASE = os.getenv("DEEPSEEK_API_BASE")
 
+### tavily
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+
 ### for convenience
 LLM_MODEL = "qwen3-vl-30b"
 EMBEDDING_MOEDL = "qwen3-embedding"

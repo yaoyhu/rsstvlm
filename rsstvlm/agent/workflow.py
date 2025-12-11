@@ -13,9 +13,10 @@ from llama_index.core.workflow import (
     step,
 )
 from llama_index.llms.openai_like import OpenAILike
+from llama_index.tools.tavily_research import TavilyToolSpec
 
 from rsstvlm.services.mcp.client import MCPClient
-from rsstvlm.utils import deepseek
+from rsstvlm.utils import TAVILY_API_KEY, deepseek
 
 
 class InputEvent(Event):
@@ -48,7 +49,13 @@ class AgentWorkflow(Workflow):
 
     async def _setup_tools(self):
         """Asynchronously connect to the server and get the tools."""
-        return await self.mcp_client.connect_to_server()
+        mcp_tools = await self.mcp_client.connect_to_server()
+
+        # web search
+        tavily_tool_spec = TavilyToolSpec(api_key=TAVILY_API_KEY)
+        tavily_tools = tavily_tool_spec.to_tool_list()
+
+        return mcp_tools + tavily_tools
 
     @classmethod
     async def create(
