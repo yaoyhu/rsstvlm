@@ -1,7 +1,12 @@
 ### data ###
-data/raw_papers/*
-data/vec_db/*
-data/*.xls
+data/*
+imports/
+logs/
+notebooks/
+plugins/
+tests/
+
+uv.lock
 
 # File created using '.gitignore Generator' for Visual Studio Code: https://bit.ly/vscode-gig
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,linux,cuda,pycharm,python
@@ -317,11 +322,11 @@ pyrightconfig.json
 
 ### VisualStudioCode ###
 .vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/*.code-snippets
+# !.vscode/settings.json
+# !.vscode/tasks.json
+# !.vscode/launch.json
+# !.vscode/extensions.json
+# !.vscode/*.code-snippets
 
 # Local History for Visual Studio Code
 .history/
