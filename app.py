@@ -3,16 +3,9 @@ import base64
 import io
 
 import streamlit as st
-from openai import OpenAI
 from PIL import Image
 from rsstvlm.agent.workflow import AgentWorkflow, StreamEvent
-from rsstvlm.utils import (
-    LLM_MODEL,
-    QWEN3_VL_30B_API_BASE,
-    deepseek_agent,
-)
-
-client = OpenAI(api_key="EMPTY", base_url=QWEN3_VL_30B_API_BASE)
+from rsstvlm.utils import deepseek_agent
 
 st.set_page_config(
     page_title="天空地一体化超光谱遥感应用工程实验室",
@@ -28,7 +21,7 @@ st.set_page_config(
 def get_agent():
     """Initialize agent once and cache it."""
     return asyncio.run(
-        AgentWorkflow.create(deepseek_agent, timeout=120, verbose=True)
+        AgentWorkflow.create(deepseek_agent, timeout=1200, verbose=True)
     )
 
 
@@ -44,42 +37,35 @@ with st.sidebar:
 
     st.divider()
 
-    # Agent mode toggle
-    use_agent = st.toggle("🤖 启用 Agent 模式", value=False)
-
-    if use_agent:
-        with st.spinner("正在加载 Agent..."):
-            try:
-                agent = get_agent()
-                st.success("Agent 已就绪 ✅")
-                # 显示可用工具
-                st.markdown("#### 🛠️ 可用工具")
-                for tool in agent.tools:
-                    with st.expander(f"📦 {tool.metadata.name}"):
-                        st.markdown(f"**描述:** {tool.metadata.description}")
-                        if tool.metadata.fn_schema:
-                            st.markdown("**参数:**")
-                            schema = (
-                                tool.metadata.fn_schema.model_json_schema()
-                            )
-                            if "properties" in schema:
-                                for param, info in schema[
-                                    "properties"
-                                ].items():
-                                    param_type = info.get("type", "any")
-                                    param_desc = info.get("description", "")
-                                    st.markdown(
-                                        f"- `{param}` ({param_type}): {param_desc}"
-                                    )
-            except Exception as e:
-                st.error(f"Agent 加载失败: {e}")
-                use_agent = False
+    # 加载 Agent 并显示工具
+    with st.spinner("正在加载 Agent..."):
+        try:
+            agent = get_agent()
+            st.success("Agent 已就绪 ✅")
+            st.markdown("#### 🛠️ 可用工具")
+            for tool in agent.tools:
+                with st.expander(f"📦 {tool.metadata.name}"):
+                    st.markdown(
+                        f"**Description:** {tool.metadata.description}"
+                    )
+                    if tool.metadata.fn_schema:
+                        st.markdown("**Args:**")
+                        schema = tool.metadata.fn_schema.model_json_schema()
+                        if "properties" in schema:
+                            for param, info in schema["properties"].items():
+                                param_type = info.get("type", "any")
+                                param_desc = info.get("description", "")
+                                st.markdown(
+                                    f"- `{param}` ({param_type}): {param_desc}"
+                                )
+        except Exception as e:
+            st.error(f"Agent 加载失败: {e}")
 
     st.divider()
     st.markdown("### 📌 使用说明")
     st.markdown("""
-    - 启用 Agent 可以查看工具
     - 目前工具较少，后续会完善
+    - 知识图谱有 bug 😭
     """)  # noqa: RUF001
 
 # ======================
@@ -116,30 +102,7 @@ prompt = st.chat_input("请输入你的问题")
 # ======================
 # 🔄 Agent 调用函数
 # ======================
-async def run_agent_stream(agent: AgentWorkflow, query: str):
-    """Run agent and yield streaming events."""
-    handler = agent.run(input=query)
-    async for event in handler.stream_events():
-        if isinstance(event, StreamEvent):
-            yield event.delta
-    # Ensure handler completes
-    await handler
-
-
-def run_agent(query: str) -> str:
-    """Run agent synchronously with streaming output."""
-    agent = get_agent()
-
-    async def collect_response():
-        full_response = ""
-        async for delta in run_agent_stream(agent, query):
-            full_response += delta
-        return full_response
-
-    return asyncio.run(collect_response())
-
-
-def run_agent_with_placeholder(query: str, placeholder) -> str:
+def run_agent_with_placeholder(query: str, placeholder) -> tuple[str, list]:
     """Run agent with live streaming to a placeholder."""
     agent = get_agent()
 
@@ -150,8 +113,16 @@ def run_agent_with_placeholder(query: str, placeholder) -> str:
             if isinstance(event, StreamEvent):
                 full_response += event.delta
                 placeholder.markdown(full_response + "▌")
-        await handler
-        return full_response
+        result = await handler  # 获取完整结果
+
+        # 如果流式响应为空,从最终结果中获取响应内容
+        if not full_response and result:
+            response = result.get("response")
+            if response and hasattr(response, "message"):
+                full_response = str(response.message.content or "")
+
+        sources = result.get("sources", []) if result else []
+        return full_response, sources
 
     return asyncio.run(stream_to_placeholder())
 
@@ -184,38 +155,30 @@ if prompt:
     st.session_state.messages.append({"role": "user", "content": user_content})
 
     # ======================
-    # 🧠 调用大模型或Agent
+    # 🧠 调用 Agent
     # ======================
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
         full_response = ""
+        sources = []
 
         try:
-            if use_agent:
-                # Use Agent with streaming
-                full_response = run_agent_with_placeholder(
-                    prompt, message_placeholder
-                )
-                message_placeholder.markdown(full_response)
-            else:
-                # Use direct LLM call
-                # TODO: will be deprecated while agent 1st demo is released
-                response = client.chat.completions.create(
-                    model=LLM_MODEL,
-                    messages=[
-                        {"role": m["role"], "content": m["content"]}
-                        for m in st.session_state.messages
-                    ],
-                    stream=True,
-                )
+            full_response, sources = run_agent_with_placeholder(
+                prompt, message_placeholder
+            )
+            message_placeholder.markdown(full_response)
 
-                for chunk in response:
-                    delta = chunk.choices[0].delta.content or ""
-                    full_response += delta
-                    message_placeholder.markdown(full_response + "▌")
-
-                message_placeholder.markdown(full_response)
-
+            # 显示数据来源
+            if sources:
+                with st.expander("📚 数据来源", expanded=False):
+                    for i, source in enumerate(sources, 1):
+                        st.markdown(f"**{i}. {source.tool_name}**")
+                        content = source.content
+                        st.code(
+                            content[:500] + "..."
+                            if len(content) > 500
+                            else content
+                        )
         except Exception as e:
             error_msg = f"❌ 模型调用失败: {e!s}"
             message_placeholder.error(error_msg)
