@@ -1,3 +1,120 @@
+from typing import Literal
+
+# ========== Entity Types ==========
+entities = Literal[
+    "Platform",  # Remote sensing platforms (TROPOMI, Sentinel-5P, OMI, etc.)
+    "Sensor",  # Instruments on platforms
+    "PolluingGas",  # Atmospheric pollutants (NO2, SO2, CO, tropospheric O3)
+    "GreenhouseGas",  # Greenhouse gases (CO2, CH4, N2O, stratospheric O3)
+    "Aerosol",  # Particulate matter (PM2.5, PM10, Black Carbon)
+    "SpectralBand",  # Electromagnetic spectrum bands (UV, Visible, IR)
+    "RetrievalAlgorithm",  # Data processing methods (DOAS, Optimal Estimation)
+    "EmissionSource",  # Sources of emissions (Transportation, Industry)
+    "ApplicationDomain",  # Research areas (Air Quality, Climate Change)
+    "GeographicRegion",  # Spatial locations (Eastern China, United States)
+    "Paper",  # Research publications
+]
+
+# ========== Relationship Types ==========
+relations = Literal[
+    # Platform-Sensor
+    "CARRIES",  # Platform carries Sensor
+    # Sensor relationships
+    "MEASURES",  # Sensor measures Gas/Aerosol
+    "USES_SPECTRAL_BAND",  # Sensor uses SpectralBand
+    "OBSERVES_WITH_METHOD",  # Sensor uses RetrievalAlgorithm
+    # Gas/Aerosol hierarchies and sources
+    "IS_TYPE_OF",  # Gas/Aerosol is type of parent category
+    "EMITTED_BY",  # Gas/Aerosol emitted by EmissionSource
+    "FORMED_FROM",  # Aerosol formed from Gas
+    # Impact relationships
+    "AFFECTS_AIR_QUALITY",  # Gas/Aerosol affects ApplicationDomain
+    "CONTRIBUTES_TO_WARMING",  # GreenhouseGas contributes to warming
+    "HEALTH_IMPACT",  # Gas/Aerosol impacts health
+    # Algorithm and spectral relationships
+    "OPERATES_IN_BAND",  # Algorithm operates in SpectralBand
+    "SENSITIVE_TO",  # SpectralBand sensitive to Gas/Aerosol
+    # Paper relationships
+    "USES_PLATFORM",  # Paper uses Platform
+    "USES_SENSOR",  # Paper uses Sensor
+    "STUDIES_COMPONENT",  # Paper studies Gas/Aerosol
+    "APPLIES_ALGORITHM",  # Paper applies Algorithm
+    "FOCUSES_ON_REGION",  # Paper focuses on GeographicRegion
+    "ADDRESSES_APPLICATION",  # Paper addresses ApplicationDomain
+    "ANALYZES_SOURCE",  # Paper analyzes EmissionSource
+    # Location and special relationships
+    "LOCATED_IN",  # EmissionSource located in GeographicRegion
+    "TROPOSPHERIC_ROLE",  # O3 tropospheric role
+    "STRATOSPHERIC_ROLE",  # O3 stratospheric role
+    # Flexible relationships (for domain-specific extraction)
+    "RELATED_TO",  # Generic relationship
+    "DRIVES",  # Process drives another
+    "INFLUENCES",  # Entity influences another
+    "RESULTS_FROM",  # Entity results from another
+    "MODULATES",  # Entity modulates another
+]
+
+# ========== Validation Schema ==========
+# Defines which relationships are valid for each entity type
+validation_schema = {
+    "Platform": [
+        "CARRIES",
+    ],
+    "Sensor": [
+        "MEASURES",
+        "USES_SPECTRAL_BAND",
+        "OBSERVES_WITH_METHOD",
+    ],
+    "PolluingGas": [
+        "IS_TYPE_OF",
+        "EMITTED_BY",
+        "AFFECTS_AIR_QUALITY",
+        "HEALTH_IMPACT",
+        "TROPOSPHERIC_ROLE",
+        "RELATED_TO",
+    ],
+    "GreenhouseGas": [
+        "IS_TYPE_OF",
+        "EMITTED_BY",
+        "CONTRIBUTES_TO_WARMING",
+        "STRATOSPHERIC_ROLE",
+        "RELATED_TO",
+    ],
+    "Aerosol": [
+        "IS_TYPE_OF",
+        "EMITTED_BY",
+        "FORMED_FROM",
+        "AFFECTS_AIR_QUALITY",
+        "HEALTH_IMPACT",
+        "RELATED_TO",
+    ],
+    "SpectralBand": [
+        "SENSITIVE_TO",
+    ],
+    "RetrievalAlgorithm": [
+        "OPERATES_IN_BAND",
+    ],
+    "EmissionSource": [
+        "LOCATED_IN",
+    ],
+    "ApplicationDomain": [
+        "RELATED_TO",
+    ],
+    "GeographicRegion": [
+        "RELATED_TO",
+    ],
+    "Paper": [
+        "USES_PLATFORM",
+        "USES_SENSOR",
+        "STUDIES_COMPONENT",
+        "APPLIES_ALGORITHM",
+        "FOCUSES_ON_REGION",
+        "ADDRESSES_APPLICATION",
+        "ANALYZES_SOURCE",
+    ],
+}
+
+
 EXTRACTION = """
 You are an expert in Atmospheric Science and Remote Sensing. You are building a Knowledge Graph from scientific papers.
 Your goal is to extract structured data from scientific text to build a graph.
