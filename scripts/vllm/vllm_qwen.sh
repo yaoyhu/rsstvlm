@@ -25,12 +25,12 @@ echo "which Python: $(uv run which python)"
 echo "🤖 Deploying Qwen/Qwen3-Embedding-8B via vllm..."
 echo
 
-export CUDA_VISIBLE_DEVICES=4
+export CUDA_VISIBLE_DEVICES=4,5
 
 uv run vllm serve Qwen/Qwen3-Embedding-8B \
     --served-model-name qwen3-embedding \
-    --tensor-parallel-size 1 \
-    --gpu-memory-utilization 0.95 \
+    --tensor-parallel-size 2 \
+    --gpu-memory-utilization 0.90 \
     --max-model-len 8192 \
     --max-num-seqs 512 \
     --swap-space 16 \

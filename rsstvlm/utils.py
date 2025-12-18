@@ -83,6 +83,9 @@ qwen3_embedding_8b = OpenAIEmbedding(
     model_name=EMBEDDING_MOEDL,
     api_key="not-needed",
     api_base=QWEN3_EMBEDDING_8B_API_BASE,
+    timeout=120,
+    max_retries=20,
+    embed_batch_size=10,
 )
 
 qwen3_vl_30b = OpenAILike(
