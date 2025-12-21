@@ -120,6 +120,9 @@ You are an expert in Atmospheric Science and Remote Sensing. You are building a 
 Your goal is to extract structured data from scientific text to build a graph.
 
 -Steps-
+0. Text Preprocessing: The input text may contain OCR errors or text extraction artifacts (e.g.,  missing spaces, or garbled characters).
+When you encounter such errors, use context to infer the correct words and proceed with extraction based on your best interpretation of the intended meaning.
+
 1. Identify all entities. For each identified entity, extract the following information:
 - entity_name: Name of the entity, capitalized
 - entity_type: Type of the entity (must match schema below)

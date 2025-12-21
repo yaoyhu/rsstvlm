@@ -1,8 +1,14 @@
 from llama_index.core import (
     PropertyGraphIndex,
     StorageContext,
+    get_response_synthesizer,
 )
-from llama_index.core.indices.property_graph import SchemaLLMPathExtractor
+from llama_index.core.indices.property_graph import (
+    SchemaLLMPathExtractor,
+    VectorContextRetriever,
+)
+from llama_index.core.query_engine import RetrieverQueryEngine
+from llama_index.core.schema import QueryBundle
 from llama_index.graph_stores.neo4j import Neo4jPropertyGraphStore
 from llama_index.vector_stores.neo4jvector import Neo4jVectorStore
 from rsstvlm.logger import rag_logger
@@ -14,6 +20,8 @@ from rsstvlm.prompts.extraction import (
 )
 from rsstvlm.services.graphrag.parse import load_documents_from_json
 from rsstvlm.services.graphrag.query import GraphRAGQueryEngine
+from rsstvlm.services.graphrag.retrieve import CustomRetriever
+from rsstvlm.services.graphrag.t2c import Text2CypherRetriever
 from rsstvlm.utils import (
     NEO4j_PASSWD,
     NEO4j_USR,
@@ -23,7 +31,15 @@ from rsstvlm.utils import (
 
 
 class GraphRAGPipeline:
-    def __init__(self):
+    """
+    Args:
+        k: similarity_top_k for rag retriever, defaults to 5
+    """
+
+    def __init__(
+        self,
+        k: int | None = 5,
+    ):
         self.index = None
         self.query_engine = None
         self.vec_store = Neo4jVectorStore(
@@ -41,6 +57,22 @@ class GraphRAGPipeline:
         self.storage_context = StorageContext.from_defaults(
             vector_store=self.vec_store,
             graph_store=self.graph_store,
+        )
+        self.vec_retriever = VectorContextRetriever(
+            graph_store=self.graph_store,
+            vector_store=self.vec_store,
+            embed_model=qwen3_embedding_8b,
+            include_text=True,
+            similarity_top_k=k,
+            path_depth=2,  # 图谱扩展深度 (1=直接关系, 2=2跳关系)
+            limit=30,  # 最多返回多少个三元组
+            similarity_score=0.7,
+            verbose=True,
+        )
+        self.kg_retriever = Text2CypherRetriever(
+            graph_store=self.graph_store,
+            llm=deepseek,
+            verbose=True,
         )
 
     def build_index(
@@ -153,16 +185,36 @@ class GraphRAGPipeline:
 
         return self.query_engine is not None
 
+    def hybrid_query(self, query: str):
+        query_bundle = QueryBundle(
+            query_str=query,
+            embedding=qwen3_embedding_8b.get_query_embedding(query),
+        )
+        hybrid_retriever = CustomRetriever(
+            vector_retriever=self.vec_retriever,
+            kg_retriever=self.kg_retriever,
+            mode="OR",
+            verbose=True,
+        )
+        response_synthesizer = get_response_synthesizer(llm=deepseek)
+        query_engine = RetrieverQueryEngine(
+            retriever=hybrid_retriever,
+            response_synthesizer=response_synthesizer,
+        )
+
+        response = query_engine.query(query_bundle)
+        return response
+
 
 def main():
     pipeline = GraphRAGPipeline()
-    print(
-        pipeline.build_index(
-            file_path="/satellite/d3/yaoyhu/rsstvlm/grobid/",
-            num_files_limit=50,
-        )
+    pipeline.build_index(
+        # file_path="/satellite/d3/yaoyhu/rsstvlm/grobid/",
+        # num_files_limit=50,
+        exist=True,
     )
-    # pipeline.query("Querying the database, what does excessive NO2 cause?")
+    query = "What is the relationship between NO2 and pollution?"
+    print(pipeline.hybrid_query(query))
 
 
 if __name__ == "__main__":
