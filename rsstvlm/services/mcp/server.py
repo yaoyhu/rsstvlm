@@ -14,12 +14,17 @@ class MCPServer:
         Refer:
             https://gofastmcp.com/patterns/decorating-methods#instance-methods
         """
+        # neo4j-related tools
         from rsstvlm.services.graphrag.pipeline import GraphRAGPipeline
-        from rsstvlm.services.tools.plot import H5Plot
 
         pipeline = GraphRAGPipeline()
-        h5plot = H5Plot()
         mcp.tool(pipeline.query)
+        mcp.tool(pipeline.hybrid_query)
+
+        # others
+        from rsstvlm.services.tools.plot import H5Plot
+
+        h5plot = H5Plot()
         mcp.tool(h5plot.plot)
         mcp.tool(h5plot.structure)
         mcp.tool(h5plot.visual_explain)

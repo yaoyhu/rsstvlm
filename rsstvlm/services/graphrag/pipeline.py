@@ -118,30 +118,29 @@ class GraphRAGPipeline:
         return "Index built successfully."
 
     def query(self, query_str: str) -> str:
-        """Query the existing Neo4j knowledge graph and return a synthesised answer.
+        """Query the existing Neo4j knowledge graph and return a synthesized answer.
 
-        This tool enables the Agent to retrieve and reason over structured knowledge
-        stored in the Neo4j database. It translates a natural-language question into
-        Cypher-based graph queries, extracts relevant entities, relationships, and
-        their contextual information, and produces a concise, human-readable summary
-        of the findings.
-
-        Typical use cases:
-            - Answering factual or analytical questions about stored entities.
-            - Summarizing the relationships or patterns found in a subgraph.
-            - Extracting aggregated insights from community or cluster summaries.
+        This method implements a multi-level GraphRAG (Graph Retrieval-Augmented Generation)
+        query pipeline that:
+        1. Retrieves relevant entities from the property graph based on semantic similarity
+        2. Identifies community clusters associated with those entities
+        3. Generates answers from each relevant community summary using LLM
+        4. Aggregates all community-level answers into a final coherent response
 
         Args:
-            query_str (str):
-                A natural-language query describing what to retrieve or analyze.
-                The query should reference known entities, relationships, or topics
-                that exist within the graph.
+            query_str: The natural language query string to answer
 
         Returns:
-            str:
-                A synthesized natural-language answer summarizing the most relevant
-                information retrieved from the Neo4j graph. The result is optimized
-                for readability and direct presentation to the user.
+            str: A synthesized answer based on community summaries from the knowledge graph
+
+        Raises:
+            Returns an error message if the query engine is not initialized or
+            the Neo4j database is not accessible
+
+        Note:
+            - Requires Neo4j database to be running and pre-populated with graph data
+            - Uses similarity_top_k parameter (default: 20) to control entity retrieval
+            - Leverages community detection results stored in the graph store
         """
         if not self._ensure_query_engine():
             return (
@@ -186,6 +185,27 @@ class GraphRAGPipeline:
         return self.query_engine is not None
 
     def hybrid_query(self, query: str):
+        """
+        Query the existing Neo4j knowledge graph and return a synthesised answer.
+
+        This tool performs a hybrid search by combining vector-based retrieval
+        and knowledge graph retrieval using an OR mode, then synthesizes a response
+        using the DeepSeek LLM.
+
+        This tool enables the Agent to retrieve and reason over structured knowledge
+        stored in the Neo4j database. It translates a natural-language question into
+        Cypher-based graph queries, extracts relevant entities, relationships, and
+        their contextual information, and produces a concise, human-readable summary
+        of the findings.
+
+        Args:
+            query (str): The natural language query string to search for.
+
+        Returns:
+            Response: The synthesized response from the query engine containing
+                relevant information retrieved from both vector store and
+                knowledge graph sources.
+        """
         query_bundle = QueryBundle(
             query_str=query,
             embedding=qwen3_embedding_8b.get_query_embedding(query),
