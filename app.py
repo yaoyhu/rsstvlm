@@ -64,8 +64,7 @@ with st.sidebar:
     st.divider()
     st.markdown("### 📌 使用说明")
     st.markdown("""
-    - 目前工具较少，后续会完善
-    - 知识图谱有 bug 😭
+    - 目前工具较少，逐渐完善
     """)  # noqa: RUF001
 
 # ======================
@@ -175,8 +174,8 @@ if prompt:
                         st.markdown(f"**{i}. {source.tool_name}**")
                         content = source.content
                         st.code(
-                            content[:500] + "..."
-                            if len(content) > 500
+                            content[:10000] + "..."
+                            if len(content) > 10000
                             else content
                         )
         except Exception as e:

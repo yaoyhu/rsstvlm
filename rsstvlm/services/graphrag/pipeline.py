@@ -11,7 +11,6 @@ from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.schema import QueryBundle
 from llama_index.graph_stores.neo4j import Neo4jPropertyGraphStore
 from llama_index.vector_stores.neo4jvector import Neo4jVectorStore
-from rsstvlm.logger import rag_logger
 from rsstvlm.prompts.extraction import (
     EXTRACTION,
     entities,
@@ -19,7 +18,6 @@ from rsstvlm.prompts.extraction import (
     validation_schema,
 )
 from rsstvlm.services.graphrag.parse import load_documents_from_json
-from rsstvlm.services.graphrag.query import GraphRAGQueryEngine
 from rsstvlm.services.graphrag.retrieve import CustomRetriever
 from rsstvlm.services.graphrag.t2c import Text2CypherRetriever
 from rsstvlm.utils import (
@@ -114,75 +112,7 @@ class GraphRAGPipeline:
                 property_graph_store=self.graph_store,
             )
 
-        # self._create_query_engine()
         return "Index built successfully."
-
-    def query(self, query_str: str) -> str:
-        """Query the existing Neo4j knowledge graph and return a synthesized answer.
-
-        This method implements a multi-level GraphRAG (Graph Retrieval-Augmented Generation)
-        query pipeline that:
-        1. Retrieves relevant entities from the property graph based on semantic similarity
-        2. Identifies community clusters associated with those entities
-        3. Generates answers from each relevant community summary using LLM
-        4. Aggregates all community-level answers into a final coherent response
-
-        Args:
-            query_str: The natural language query string to answer
-
-        Returns:
-            str: A synthesized answer based on community summaries from the knowledge graph
-
-        Raises:
-            Returns an error message if the query engine is not initialized or
-            the Neo4j database is not accessible
-
-        Note:
-            - Requires Neo4j database to be running and pre-populated with graph data
-            - Uses similarity_top_k parameter (default: 20) to control entity retrieval
-            - Leverages community detection results stored in the graph store
-        """
-        if not self._ensure_query_engine():
-            return (
-                "GraphRAG query engine is not ready. Ensure the Neo4j database "
-                "is running and already populated before querying."
-            )
-        response = self.query_engine.custom_query(query_str)
-        rag_logger.info("GraphRAG response: %s", response)
-        return response
-
-    def _create_query_engine(self) -> None:
-        """Prepare the query engine after an index has been initialised."""
-        if not self.index:
-            return
-        self.index.property_graph_store.build_communities()
-        self.query_engine = GraphRAGQueryEngine(
-            graph_store=self.index.property_graph_store,
-            llm=deepseek,
-            index=self.index,
-            similarity_top_k=10,
-        )
-
-    def _ensure_query_engine(self) -> bool:
-        """Initialise the query engine from the existing graph store if needed."""
-        if self.query_engine:
-            return True
-        try:
-            if not self.index:
-                self.index = PropertyGraphIndex.from_existing(
-                    property_graph_store=self.graph_store,
-                    vector_store=self.vec_store,
-                    llm=deepseek,
-                    embed_model=qwen3_embedding_8b,
-                )
-            self._create_query_engine()
-        except Exception:
-            rag_logger.exception("Failed to initialise GraphRAG query engine")
-            self.index = None
-            self.query_engine = None
-            return False
-
-        return self.query_engine is not None
 
     def hybrid_query(self, query: str):
         """
@@ -229,12 +159,12 @@ class GraphRAGPipeline:
 def main():
     pipeline = GraphRAGPipeline()
     pipeline.build_index(
-        # file_path="/satellite/d3/yaoyhu/rsstvlm/grobid/",
-        # num_files_limit=50,
-        exist=True,
+        file_path="/satellite/d3/yaoyhu/rsstvlm/grobid/",
+        num_files_limit=50,
+        # exist=True,
     )
-    query = "What is the relationship between NO2 and pollution?"
-    print(pipeline.hybrid_query(query))
+    # query = "What is the relationship between NO2 and pollution?"
+    # print(pipeline.hybrid_query(query))
 
 
 if __name__ == "__main__":

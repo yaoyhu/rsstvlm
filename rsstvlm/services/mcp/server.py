@@ -18,7 +18,6 @@ class MCPServer:
         from rsstvlm.services.graphrag.pipeline import GraphRAGPipeline
 
         pipeline = GraphRAGPipeline()
-        mcp.tool(pipeline.query)
         mcp.tool(pipeline.hybrid_query)
 
         # others
