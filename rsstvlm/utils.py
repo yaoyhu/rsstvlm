@@ -35,6 +35,9 @@ EMBEDDING_MOEDL = "qwen3-embedding"
 QWEN3_EMBEDDING_8B_API_BASE = "http://localhost:8001/v1/"
 QWEN3_VL_30B_API_BASE = "http://localhost:8003/v1/"
 
+### air matters
+AM_API_KEY = os.getenv("AM_API_KEY")
+
 deepseek_agent = OpenAILike(
     model="deepseek-chat",
     api_key=DEEPSEEK_API_KEY,

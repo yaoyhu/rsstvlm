@@ -20,6 +20,22 @@ class MCPServer:
         pipeline = GraphRAGPipeline()
         mcp.tool(pipeline.hybrid_query)
 
+        # air matters
+        from rsstvlm.services.tools.airmatters import AirMatters
+
+        am = AirMatters()
+        mcp.tool(am.current_air_condition)
+        mcp.tool(am.place_search)
+        mcp.tool(am.sub_places)
+        mcp.tool(am.get_standard)
+        mcp.tool(am.aqi_forecast)
+        mcp.tool(am.history_air_condition)
+        mcp.tool(am.nearby_place)
+        mcp.tool(am.nearby_air_condition)
+        mcp.tool(am.batch_air_condition)
+        mcp.tool(am.map)
+        mcp.tool(am.heatmap)
+
         # others
         from rsstvlm.services.tools.plot import H5Plot
 
